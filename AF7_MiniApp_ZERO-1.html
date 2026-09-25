@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AF7 · Scalp Engine</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0908;
+    --surface:#141210;
+    --surface-2:#1c1914;
+    --hairline:#2c2820;
+    --amber:#d4a017;
+    --amber-dim:#8a6a17;
+    --bull:#4ea699;
+    --bull-dim:#2a4d47;
+    --bear:#c1594b;
+    --bear-dim:#4d2d27;
+    --text:#f1ede3;
+    --text-muted:#8f887a;
+    --text-faint:#5c574c;
+    --radius-lg:18px;
+    --radius-sm:10px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text);}
+  body{
+    font-family:'Vazirmatn', sans-serif;
+    direction:rtl;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow-x:hidden;
+    background-image:
+      radial-gradient(ellipse 500px 300px at 20% -5%, rgba(212,160,23,0.08), transparent),
+      radial-gradient(ellipse 400px 260px at 100% 10%, rgba(78,166,153,0.05), transparent);
+  }
+  .mono{font-family:'IBM Plex Mono', monospace; direction:ltr; unicode-bidi:isolate;}
+
+  /* ── Header ───────────────────────────── */
+  header{
+    padding:18px 20px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:30px; height:30px; border-radius:8px;
+    background:linear-gradient(135deg, var(--amber), #8a6a17);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:13px; color:#0a0908;
+    flex-shrink:0;
+  }
+  .brand-name{font-size:14.5px; font-weight:700; letter-spacing:0.2px;}
+  .brand-sub{font-size:11px; color:var(--text-faint); margin-top:1px;}
+  .status-pill{
+    display:flex; align-items:center; gap:6px;
+    font-size:11.5px; color:var(--bull); background:rgba(78,166,153,0.1);
+    padding:5px 11px; border-radius:100px; border:1px solid rgba(78,166,153,0.25);
+  }
+  .status-dot{width:6px; height:6px; border-radius:50%; background:var(--bull);
+    box-shadow:0 0 0 0 rgba(78,166,153,0.6); animation:pulse 2s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(78,166,153,0.5);}
+    70%{box-shadow:0 0 0 6px rgba(78,166,153,0);}
+    100%{box-shadow:0 0 0 0 rgba(78,166,153,0);}
+  }
+
+  main{flex:1; padding:4px 20px 100px; overflow-y:auto;}
+  .view{display:none;}
+  .view.active{display:block; animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ── Hero equity ──────────────────────── */
+  .hero{padding:14px 2px 6px;}
+  .hero-label{font-size:12.5px; color:var(--text-muted); margin-bottom:6px;}
+  .hero-value{
+    font-family:'IBM Plex Mono', monospace; direction:ltr; text-align:right;
+    font-size:44px; font-weight:600; letter-spacing:-1px; color:var(--text);
+    line-height:1.1;
+  }
+  .hero-value .cents{font-size:24px; color:var(--text-faint);}
+  .hero-delta{
+    display:flex; align-items:center; gap:6px; margin-top:8px; font-size:13.5px;
+  }
+  .hero-delta.up{color:var(--bull);}
+  .hero-delta .amount{font-family:'IBM Plex Mono', monospace; direction:ltr;}
+  .hero-delta .period{color:var(--text-faint);}
+
+  #sparkline{width:100%; height:64px; margin-top:14px; display:block;}
+
+  /* ── Stat grid ────────────────────────── */
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:20px 0 6px;}
+  .stat-card{
+    background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-sm);
+    padding:12px 10px;
+  }
+  .stat-card .num{font-family:'IBM Plex Mono', monospace; direction:ltr; font-size:19px; font-weight:600;}
+  .stat-card .lbl{font-size:11px; color:var(--text-muted); margin-top:4px;}
+  .stat-card.accent .num{color:var(--amber);}
+
+  /* ── Section headers ──────────────────── */
+  .sec-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin:26px 0 12px;
+  }
+  .sec-head h2{font-size:15px; font-weight:700; margin:0;}
+  .sec-head .count{font-size:11.5px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace;}
+
+  /* ── Signal cards ─────────────────────── */
+  .signal{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    border-radius:var(--radius-sm);
+    padding:13px 14px 13px 14px;
+    margin-bottom:10px;
+    padding-right:16px;
+    overflow:hidden;
+  }
+  .signal::before{
+    content:''; position:absolute; top:0; right:0; bottom:0; width:3px;
+  }
+  .signal.long::before{background:var(--bull);}
+  .signal.short::before{background:var(--bear);}
+  .signal-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;}
+  .signal-sym{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14.5px;}
+  .dir-tag{
+    font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:5px;
+    font-family:'IBM Plex Mono', monospace; direction:ltr;
+  }
+  .dir-tag.long{color:var(--bull); background:rgba(78,166,153,0.12);}
+  .dir-tag.short{color:var(--bear); background:rgba(193,89,75,0.12);}
+  .signal-time{font-size:11px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace;}
+  .signal-rows{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:2px;}
+  .signal-rows div{font-size:12px;}
+  .signal-rows .k{color:var(--text-faint); font-size:10.5px; margin-bottom:2px;}
+  .signal-rows .v{font-family:'IBM Plex Mono', monospace; direction:ltr;}
+  .signal.live .signal-top::after{
+    content:''; width:6px; height:6px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 0 0 rgba(212,160,23,0.6); animation:pulse2 1.8s infinite;
+  }
+  @keyframes pulse2{
+    0%{box-shadow:0 0 0 0 rgba(212,160,23,0.55);}
+    70%{box-shadow:0 0 0 5px rgba(212,160,23,0);}
+    100%{box-shadow:0 0 0 0 rgba(212,160,23,0);}
+  }
+
+  /* ── History rows ─────────────────────── */
+  .hist-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 2px; border-bottom:1px solid var(--hairline);
+  }
+  .hist-row:last-child{border-bottom:none;}
+  .hist-left{display:flex; align-items:center; gap:10px;}
+  .hist-outcome{
+    width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:700; font-family:'IBM Plex Mono',monospace; flex-shrink:0;
+  }
+  .hist-outcome.win{background:rgba(78,166,153,0.14); color:var(--bull);}
+  .hist-outcome.loss{background:rgba(193,89,75,0.14); color:var(--bear);}
+  .hist-sym{font-size:13.5px; font-weight:600;}
+  .hist-meta{font-size:11px; color:var(--text-faint); margin-top:2px;}
+  .hist-r{font-family:'IBM Plex Mono', monospace; direction:ltr; font-size:13.5px; font-weight:600;}
+  .hist-r.win{color:var(--bull);} .hist-r.loss{color:var(--bear);}
+
+  .filter-row{display:flex; gap:8px; margin-bottom:16px;}
+  .filter-chip{
+    font-size:12px; padding:6px 14px; border-radius:100px; border:1px solid var(--hairline);
+    color:var(--text-muted); background:var(--surface); cursor:pointer;
+  }
+  .filter-chip.active{border-color:var(--amber-dim); color:var(--amber); background:rgba(212,160,23,0.08);}
+
+  /* ── Settings ─────────────────────────── */
+  .settings-block{background:var(--surface); border:1px solid var(--hairline); border-radius:var(--radius-lg); padding:6px 16px; margin-bottom:16px;}
+  .settings-row{display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--hairline);}
+  .settings-row:last-child{border-bottom:none;}
+  .settings-row .k{font-size:13.5px;}
+  .settings-row .sub{font-size:11px; color:var(--text-faint); margin-top:2px;}
+  .settings-row .v{font-family:'IBM Plex Mono', monospace; direction:ltr; color:var(--amber); font-size:14px; font-weight:600;}
+  .toggle{width:42px; height:24px; border-radius:100px; background:var(--hairline); position:relative; cursor:pointer; transition:.2s;}
+  .toggle.on{background:var(--bull-dim);}
+  .toggle::after{content:''; position:absolute; width:18px; height:18px; border-radius:50%; background:var(--text-muted); top:3px; right:3px; transition:.2s;}
+  .toggle.on::after{background:var(--bull); right:21px;}
+
+  .bridge-note{
+    display:flex; gap:11px; background:var(--surface-2); border:1px solid var(--hairline);
+    border-radius:var(--radius-sm); padding:13px 14px; margin-top:4px; margin-bottom:20px;
+  }
+  .bridge-note .ic{font-size:16px; flex-shrink:0;}
+  .bridge-note p{margin:0; font-size:12px; line-height:1.7; color:var(--text-muted);}
+  .bridge-note b{color:var(--text);}
+  .bridge-note code{font-family:'IBM Plex Mono', monospace; direction:ltr; unicode-bidi:isolate; background:rgba(212,160,23,0.1); color:var(--amber); padding:1px 5px; border-radius:4px; font-size:11px;}
+
+  /* ── Bottom tab bar ───────────────────── */
+  nav{
+    position:fixed; bottom:0; right:0; left:0;
+    background:rgba(10,9,8,0.92); backdrop-filter:blur(14px);
+    border-top:1px solid var(--hairline);
+    display:flex; padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    z-index:10;
+  }
+  .tab{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:6px 0; color:var(--text-faint); background:none; border:none; cursor:pointer;
+    font-family:'Vazirmatn', sans-serif; font-size:11px;
+  }
+  .tab svg{width:20px; height:20px; stroke:var(--text-faint); fill:none; stroke-width:1.7;}
+  .tab.active{color:var(--amber);}
+  .tab.active svg{stroke:var(--amber);}
+
+  .empty{text-align:center; padding:50px 20px; color:var(--text-faint); font-size:13px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">AF7</div>
+    <div>
+      <div class="brand-name">AF7 Scalp Engine</div>
+      <div class="brand-sub">ICT / SMC · اجرای خودکار</div>
+    </div>
+  </div>
+  <div class="status-pill" id="status-pill"><span class="status-dot"></span>در حال اتصال</div>
+</header>
+
+<main>
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <section class="view active" id="view-dashboard">
+    <div class="hero">
+      <div class="hero-label">موجودی حساب</div>
+      <div class="hero-value mono" id="equity-value">$0<span class="cents">.00</span></div>
+      <div class="hero-delta">
+        <span class="amount">$0.00</span>
+        <span class="period">· ۰٪ از شروع ($۰)</span>
+      </div>
+      <canvas id="sparkline"></canvas>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card accent"><div class="num">0%</div><div class="lbl">وین‌ریت</div></div>
+      <div class="stat-card"><div class="num">0</div><div class="lbl">پروفیت‌فکتور</div></div>
+      <div class="stat-card"><div class="num">0%</div><div class="lbl">حداکثر افت</div></div>
+    </div>
+
+    <div class="sec-head">
+      <h2>سیگنال‌های اخیر</h2>
+      <span class="count" id="dash-count"></span>
+    </div>
+    <div id="dash-signals"></div>
+  </section>
+
+  <!-- ═══════════════ SIGNALS ═══════════════ -->
+  <section class="view" id="view-signals">
+    <div class="sec-head" style="margin-top:18px;">
+      <h2>سیگنال‌های زنده</h2>
+      <span class="count" id="signals-count"></span>
+    </div>
+    <div id="signals-list"></div>
+  </section>
+
+  <!-- ═══════════════ HISTORY ═══════════════ -->
+  <section class="view" id="view-history">
+    <div class="sec-head" style="margin-top:18px;"><h2>تاریخچه‌ی معاملات</h2></div>
+    <div class="filter-row">
+      <div class="filter-chip active" data-f="all">همه</div>
+      <div class="filter-chip" data-f="WIN">برد</div>
+      <div class="filter-chip" data-f="LOSS">باخت</div>
+    </div>
+    <div id="history-list"></div>
+  </section>
+
+  <!-- ═══════════════ SETTINGS ═══════════════ -->
+  <section class="view" id="view-settings">
+    <div class="sec-head" style="margin-top:18px;"><h2>تنظیمات ریسک</h2></div>
+    <div class="settings-block">
+      <div class="settings-row">
+        <div><div class="k">ریسک هر معامله</div><div class="sub">درصد از موجودی در هر ترید</div></div>
+        <div class="v" id="set-risk">—</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">سقف ریسک کل</div><div class="sub">حداکثر ریسک هم‌زمان</div></div>
+        <div class="v" id="set-maxrisk">—</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">نسبت ریسک به ریوارد</div><div class="sub">هدف سود ثابت</div></div>
+        <div class="v" id="set-rr">—</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">حداقل امتیاز ست‌آپ</div><div class="sub">از ۱۲ امتیاز ممکن</div></div>
+        <div class="v" id="set-score">—</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">تعداد نمادها</div><div class="sub">در حال پایش</div></div>
+        <div class="v" id="set-symbols">—</div>
+      </div>
+    </div>
+
+    <div class="sec-head"><h2>اعلان‌ها</h2></div>
+    <div class="settings-block">
+      <div class="settings-row">
+        <div><div class="k">سیگنال جدید</div></div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">بسته‌شدن معامله</div></div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="k">گزارش هفتگی</div></div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+
+    <div class="bridge-note" id="bridge-note">
+      <span class="ic">🔌</span>
+      <p><b>در حال اتصال…</b> اگه به داده‌ی زنده وصل بشه این پیام خودش عوض می‌شه.</p>
+    </div>
+  </section>
+
+</main>
+
+<nav>
+  <button class="tab active" data-view="dashboard">
+    <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    داشبورد
+  </button>
+  <button class="tab" data-view="signals">
+    <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    سیگنال‌ها
+  </button>
+  <button class="tab" data-view="history">
+    <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    تاریخچه
+  </button>
+  <button class="tab" data-view="settings">
+    <svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+    تنظیمات
+  </button>
+</nav>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); window.AF7_TG_INIT_DATA = tg.initData || ''; }
+
+// ── Seed data (reflects the actual 30-day portfolio backtest discussed) ──
+const SEED_TRADES = [];
+
+const SEED_SIGNALS = [];
+
+// ══════════════════════════════════════════════════
+// ‌‌LIVE CONNECTION — point this at your bot's tunneled URL, e.g. an ngrok
+// address: "https://xxxx.ngrok-free.app/status". Leave empty to run on demo data.
+// ══════════════════════════════════════════════════
+const STATUS_URL = "https://subduing-automaker-diffuser.ngrok-free.dev/status"; // AF7 Agent via ngrok
+const REFRESH_MS = 15000;        // how often to re-poll the bot
+
+let isLive = false;
+
+function loadState(key, seed){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : seed;
+  }catch(e){ return seed; }
+}
+
+async function fetchLiveStatus(){
+  if (!STATUS_URL) return null;
+  try{
+    const res = await fetch(STATUS_URL, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': '1'
+      }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }catch(e){
+    console.error('[AF7] Agent connection failed:', e);
+    window.__AF7_LAST_ERROR = String(e?.message || e);
+    return null;
+  }
+}
+
+function setLiveBadge(live){
+  isLive = live;
+  const pill = document.getElementById('status-pill');
+  const note = document.getElementById('bridge-note');
+  if (live){
+    pill.innerHTML = '<span class="status-dot"></span>متصل به ربات زنده';
+    note.innerHTML = '<span class="ic">✅</span><p><b>متصل:</b> این صفحه مستقیماً از تنظیمات و معاملات واقعی <code class="mono">af7_trader_scalp</code> می‌خونه — هر بار تنظیمات ربات عوض بشه، همینجا هم خودش به‌روز می‌شه.</p>';
+  } else {
+    pill.innerHTML = '<span class="status-dot" style="background:var(--text-faint); animation:none;"></span>حالت نمایشی';
+    note.innerHTML = '<span class="ic">🔌</span><p><b>حالت نمایشی:</b> این نما الان با داده‌ی نمونه کار می‌کنه. برای اتصال زنده، ربات پایتون رو با <code class="mono">STATUS_SERVER_PORT</code> اجرا کن، پورتش رو با ngrok (یا مشابه) به یه آدرس https تبدیل کن، و اون آدرس رو در بالای کد این فایل در <code class="mono">STATUS_URL</code> بذار.</p>';
+  }
+}
+
+function renderSettings(s){
+  if (!s) return;
+  document.getElementById('set-risk').textContent = s.risk_per_trade_pct + '%';
+  document.getElementById('set-maxrisk').textContent = s.max_total_risk_pct + '%';
+  document.getElementById('set-rr').textContent = '1:' + (s.rr_max/s.rr_min).toFixed(0);
+  document.getElementById('set-score').textContent = s.min_setup_score + '/12';
+  document.getElementById('set-symbols').textContent = (s.symbol_count ?? s.symbols?.length ?? '—');
+}
+
+function liveSignalToCard(t){
+  return {
+    sym: t.symbol, dir: t.direction,
+    entry: (+t.entry).toFixed(t.entry < 50 ? 4 : 2),
+    sl: (+t.sl).toFixed(t.sl < 50 ? 4 : 2),
+    tp: (+t.tp1).toFixed(t.tp1 < 50 ? 4 : 2),
+    live: t.status === 'OPEN',
+    time: t.status === 'OPEN' ? 'در حال اجرا' : 'در انتظار پر شدن',
+  };
+}
+function liveTradeToRow(t){
+  return { sym: t.symbol, dir: 'LONG', result: t.result, rr: t.rr,
+           time: new Date(t.time).toLocaleString('fa-IR') };
+}
+
+async function loadData(){
+  let trades = SEED_TRADES, signals = SEED_SIGNALS, settings = null, equity = null;
+
+  const live = await fetchLiveStatus();
+  if (live){
+    setLiveBadge(true);
+    settings = live.settings;
+    equity = live.account;
+    signals = (live.active_trades || []).map(liveSignalToCard);
+    trades = (live.recent_trades || []).map(liveTradeToRow);
+    if (!trades.length) trades = [];
+    if (!signals.length) signals = [];
+  } else {
+    setLiveBadge(false);
+    // still try window.storage / localStorage for a locally-persisted demo state
+    try{
+      if (window.storage){
+        const t = await window.storage.get('trades', false).catch(()=>null);
+        const sList = await window.storage.get('signals', false).catch(()=>null);
+        trades = [];
+        if (sList && sList.value) signals = JSON.parse(sList.value);
+        else await window.storage.set('signals', JSON.stringify(SEED_SIGNALS), false).catch(()=>{});
+      }
+    }catch(e){ /* seed data already assigned */ }
+  }
+
+  if (settings) renderSettings(settings);
+  updateHero(0);
+  render(trades, signals);
+}
+
+function updateHero(balance){
+  const [d, c] = balance.toFixed(2).split('.');
+  document.getElementById('equity-value').innerHTML = `$${d}<span class="cents">.${c}</span>`;
+}
+
+function render(trades, signals){
+  // dashboard mini list (first 3 signals)
+  document.getElementById('dash-count').textContent = signals.length + ' فعال';
+  document.getElementById('dash-signals').innerHTML = signals.slice(0,3).map(signalCard).join('');
+  document.getElementById('signals-count').textContent = signals.length + ' مورد';
+  document.getElementById('signals-list').innerHTML = signals.length
+    ? signals.map(signalCard).join('')
+    : '<div class="empty">در حال حاضر سیگنال فعالی نیست</div>';
+
+  renderHistory(trades, 'all');
+  document.querySelectorAll('.filter-chip').forEach(chip=>{
+    chip.onclick = () => {
+      document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      renderHistory(trades, chip.dataset.f);
+    };
+  });
+
+  drawSpark();
+}
+
+function signalCard(s){
+  const dirClass = s.dir === 'LONG' ? 'long' : 'short';
+  const dirLabel = s.dir === 'LONG' ? 'خرید ▲' : 'فروش ▼';
+  return `
+  <div class="signal ${dirClass} ${s.live?'live':''}">
+    <div class="signal-top">
+      <div class="signal-sym">${s.sym}<span class="dir-tag ${dirClass}">${dirLabel}</span></div>
+      <div class="signal-time">${s.time}</div>
+    </div>
+    <div class="signal-rows">
+      <div><div class="k">ورود</div><div class="v">${s.entry}</div></div>
+      <div><div class="k">حد ضرر</div><div class="v">${s.sl}</div></div>
+      <div><div class="k">هدف سود</div><div class="v">${s.tp}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderHistory(trades, filter){
+  const filtered = filter === 'all' ? trades : trades.filter(t => t.result === filter);
+  document.getElementById('history-list').innerHTML = filtered.length
+    ? filtered.map(t => `
+      <div class="hist-row">
+        <div class="hist-left">
+          <div class="hist-outcome ${t.result === 'WIN' ? 'win' : 'loss'}">${t.result === 'WIN' ? 'W' : 'L'}</div>
+          <div>
+            <div class="hist-sym">${t.sym} <span style="color:var(--text-faint); font-weight:400; font-size:11px;">${t.dir === 'LONG' ? 'خرید' : 'فروش'}</span></div>
+            <div class="hist-meta">${t.time}</div>
+          </div>
+        </div>
+        <div class="hist-r ${t.result === 'WIN' ? 'win' : 'loss'}">${t.rr > 0 ? '+' : ''}${t.rr.toFixed(1)}R</div>
+      </div>`).join('')
+    : '<div class="empty">معامله‌ای در این دسته یافت نشد</div>';
+}
+
+// ── Hand-drawn-feel equity sparkline (jagged, not a smooth gradient chart) ──
+function drawSpark(){
+  const c = document.getElementById('sparkline');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w*dpr; c.height = h*dpr; ctx.scale(dpr,dpr);
+
+  // equity path approximating the $200 -> $602 curve with realistic noise
+  const points = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  const min = 0, max = 1;
+  const pad = 6;
+
+  ctx.clearRect(0,0,w,h);
+  ctx.beginPath();
+  points.forEach((v,i)=>{
+    const x = (i/(points.length-1)) * w;
+    const y = h - pad - ((v-min)/(max-min)) * (h - pad*2);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = '#d4a017';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // soft fill under the line
+  ctx.lineTo(w, h); ctx.lineTo(0,h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, 'rgba(212,160,23,0.18)');
+  grad.addColorStop(1, 'rgba(212,160,23,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// ── Tab navigation ──
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.view).classList.add('active');
+    if (window.storage) window.storage.set('last_tab', tab.dataset.view, false).catch(()=>{});
+  };
+});
+
+window.addEventListener('resize', drawSpark);
+loadData();
+setInterval(loadData, REFRESH_MS);
+</script>
+</body>
+</html>
